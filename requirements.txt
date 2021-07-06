@@ -1,0 +1,2 @@
+python-dotenv==0.13.0
+python-gitlab==1.15.0
