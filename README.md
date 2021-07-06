@@ -1,4 +1,4 @@
-Populate Gitlab Project Variables from .env dile
+Populate Gitlab Project Variables from .env file
 =================================================
 
 ## Prerequisites
