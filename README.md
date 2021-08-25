@@ -14,6 +14,29 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Build & Test
+
+```shell
+# lint
+python setup.py flake8
+python3 setup.py build
+python3 setup.py test
+```
+
+## Local Usage
+
+```shell
+python3 setup.py install
+```
+
+### Install from git
+
+```shell
+virtualenv venv
+source venv/bin/activate
+python -m pip install -e "git+https://github.com/deploymode/populate-secrets-gitlab.git/#egg=populate-gitlab"
+```
+
 ## Usage Example
 
 ```shell

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""The main entry point. Invoke as `populate-ssm`
+"""The main entry point. Invoke as `populate-secrets-gitlab`
 """
 
 
