@@ -14,6 +14,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Local testing
+
+(after Set up)
+
+```shell
+python src/populate_secrets_gitlab/app.py write
+```
+
 ## Build & Test
 
 ```shell
