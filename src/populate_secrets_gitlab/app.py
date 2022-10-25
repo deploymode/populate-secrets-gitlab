@@ -7,6 +7,7 @@ from email.policy import default
 import re
 from dotenv import dotenv_values
 import gitlab
+from gitlab_server import gitlab_client
 import util
 import click
 import urllib
@@ -79,7 +80,7 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
         )
 
     # Create gitlab client
-    gitlabClient = gitlab.Gitlab(gitlab_host, private_token=gitlab_token)
+    gitlabClient = gitlab_client(gitlab_host, gitlab_token)
     if debug:
         gitlabClient.enable_debug()
 
@@ -218,7 +219,7 @@ def get(environment, gitlab_host, project, export, debug):
         )
 
     # Create gitlab client
-    gitlabClient = gitlab.Gitlab(util.prepare_gitlab_host(gitlab_host), private_token=gitlab_token)
+    gitlabClient = gitlab_client(gitlab_host, gitlab_token) 
     if debug:
         gitlabClient.enable_debug()
 
