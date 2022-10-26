@@ -3,12 +3,11 @@
 #
 #############################################################
 
-from email.policy import default
-import re
 from dotenv import dotenv_values
 import gitlab
+from gitlab.v4.objects.projects import Project
+
 from gitlab_server import gitlab_client
-import util
 import click
 import urllib
 from urllib.parse import urlparse
@@ -62,15 +61,20 @@ def cli():
     default=""
 )
 @click.option(
+    "--mask",
+    is_flag=True,
+    default=False,
+    help="Mask variables with strings KEY, SECRET, TOKEN in their name",
+)
+@click.option(
     "--debug",
     is_flag=True,
     help="Produce debug output",
 )
-def write(env_file, environment, gitlab_host, project, include, exclude, debug):
+def write(env_file, environment, gitlab_host, project, include, exclude, mask, debug):
     # If the var name contains any of these words it will be masked
-    varsToMask = ["KEY", "SECRET"]  # PASSWORD
-    enableMasking = False
-    gitlab_token = None
+    varsToMask = ["KEY", "SECRET", "TOKEN"]  # PASSWORD
+    enableMasking = mask
 
     try:
         gitlab_token = os.environ["GITLAB_TOKEN"]
@@ -78,6 +82,9 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
         raise Exception(
             "GITLAB_TOKEN must be set. Get token from https://your-gitlab.example.com/profile/personal_access_tokens"
         )
+
+    if not os.path.exists(env_file):
+        raise Exception(f"Unable to find env file {env_file}")
 
     # Create gitlab client
     gitlabClient = gitlab_client(gitlab_host, gitlab_token)
@@ -99,7 +106,7 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
         env_vars_to_exclude = exclude.split(",")
         logger.info("Excluding: {}".format("; ".join(env_vars_to_exclude)))
 
-    gitlabProject = ""
+    gitlabProject: Project
 
     try:
         gitlabProject = gitlabClient.projects.get(
@@ -115,15 +122,21 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
     if not gitlabProject:
         raise Exception("Could not find project: {}".format(project))
 
-    # gitlabProjectVariables = gitlabProject.variables.list()
-    # if args.debug:
-    #     logger.info(*gitlabProjectVariables, sep='\n')
-    # gitlabProjectVariableKeys = list(map(lambda o: o.key, gitlabProjectVariables))
-    # if args.debug:
-    #     logger.info(*gitlabProjectVariableKeys, sep='\n')
+    # Get all existing vars
+    gl_project_vars = gitlabProject.variables.list(get_all=True)
+    logger.debug(gl_project_vars)
+    gitlab_project_variable_keys_with_scope = list(map(lambda o: {"environment_scope": o.environment_scope, "key": o.key}, gl_project_vars))
+    logger.debug(gitlab_project_variable_keys_with_scope)
+    gitlab_project_variable_keys_by_scope = dict()
+    for d in gitlab_project_variable_keys_with_scope:
+        gitlab_project_variable_keys_by_scope.setdefault(
+                    d["environment_scope"], []
+                ).append(d["key"])
+
+    logger.debug(gitlab_project_variable_keys_by_scope)
 
     for key, value in env_values.items():
-        isUpdate = False
+        is_update = False
         if len(env_vars_to_include) > 0 and key not in env_vars_to_include:
             continue
 
@@ -133,24 +146,14 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
 
         # Write to Gitlab API
         try:
-            projectVar = None
-            # Check if var exists in the current environment
-            try:
-                projectVar = gitlabProject.variables.get(
-                    key
-                )  # , 'filter[environment_scope]'='{}'.format(args.environment))
-                logger.debug(projectVar)
-            except gitlab.exceptions.GitlabGetError:
-                # Do nothing - API returned a 404
-                logger.info("{} var not found - will create".format(key))
-
-            logger.debug(projectVar)
-
-            if projectVar and projectVar.environment_scope == environment:
-                isUpdate = True
+            if key in gitlab_project_variable_keys_by_scope[environment]:
+                is_update = True
                 # Update
-                projectVar.value = value
-                projectVar.save()
+                project_var = [v for v in gl_project_vars if v.key == key][0]
+                project_var.value = value
+                if enableMasking and any(x in key for x in varsToMask):
+                    project_var.masked = True
+                project_var.save(filter={'environment_scope': environment})
             else:
                 # Add
                 payload = {
@@ -176,7 +179,7 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
 
         logger.info(
             "Wrote {} variable {} to Gitlab API in environment {}".format(
-                "updated" if isUpdate else "new", key, environment
+                "updated" if is_update else "new", key, environment
             )
         )
 
