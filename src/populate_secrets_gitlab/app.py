@@ -7,7 +7,7 @@ from dotenv import dotenv_values
 import gitlab
 from gitlab.v4.objects.projects import Project
 
-from gitlab_server import gitlab_client
+from .gitlab_server import gitlab_client
 import click
 import urllib
 from urllib.parse import urlparse
@@ -257,6 +257,94 @@ def get(environment, gitlab_host, project, export, debug):
                     f.write(f"{variable.key}={variable.value}\n")
 
     logger.info("Done")
+
+
+@cli.command(name="list", help="List Gitlab project vars for an environment")
+@click.option(
+    "--environment",
+    required=True,
+    help="Name of gitlab environment, e.g. `uat`",
+)
+@click.option(
+    "--gitlab-host",
+    required=True,
+    help="Gitlab server host",
+)
+@click.option(
+    "--project",
+    required=True,
+    help="Gitlab project name or ID",
+)
+@click.option(
+    "--sensitive",
+    is_flag=True,
+    default=False,
+    help="Show all values including masked ones",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Produce debug output",
+)
+def list_vars(environment, gitlab_host, project, sensitive, debug):
+    try:
+        gitlab_token = os.environ["GITLAB_TOKEN"]
+    except KeyError:
+        raise click.ClickException(
+            f"GITLAB_TOKEN must be set. Get token from https://{gitlab_host}/-/profile/personal_access_tokens"
+        )
+
+    gitlabClient = gitlab_client(gitlab_host, gitlab_token)
+    if debug:
+        gitlabClient.enable_debug()
+
+    try:
+        gitlabProject = gitlabClient.projects.get(
+            id=urllib.parse.quote_plus(project)
+        )
+    except gitlab.exceptions.GitlabHttpError:
+        raise click.ClickException(
+            "Could not find project: {}".format(urllib.parse.quote_plus(project))
+        )
+
+    if not gitlabProject:
+        raise click.ClickException("Could not find project: {}".format(project))
+
+    click.secho(
+        f"Variables for {gitlabProject.name} ({gitlabProject.id}) — environment: {environment}",
+        fg="green",
+    )
+
+    variables = gitlabProject.variables.list(get_all=True)
+
+    env_vars = []
+    for v in variables:
+        scope = "global" if v.environment_scope == "*" else v.environment_scope
+        if scope == environment or scope == "global":
+            env_vars.append(v)
+
+    if not env_vars:
+        click.secho("No variables found.", fg="yellow")
+        return
+
+    # Determine column widths
+    max_key_len = max(len(v.key) for v in env_vars)
+    max_scope_len = max(len(v.environment_scope) for v in env_vars)
+
+    for v in env_vars:
+        if sensitive or not v.masked:
+            display_value = v.value
+        else:
+            display_value = "********"
+
+        scope_label = v.environment_scope
+        key_col = v.key.ljust(max_key_len)
+        scope_col = scope_label.ljust(max_scope_len)
+        masked_label = " [masked]" if v.masked else ""
+
+        click.echo(f"  {scope_col}  {key_col}  {display_value}{masked_label}")
+
+    click.secho(f"\n{len(env_vars)} variable(s) found.", fg="green")
 
 
 if __name__ == "__main__":

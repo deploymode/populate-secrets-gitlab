@@ -1,59 +1,45 @@
 Populate Gitlab Project Variables from .env file
 =================================================
 
-## Prerequisites
-
-* Python3
-* virtualenv
-
-## Set up
+## Install
 
 ```shell
-virtualenv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# From git (in any project)
+uv pip install "git+https://github.com/deploymode/populate-secrets-gitlab.git"
 ```
 
-## Local testing
+## Usage
 
-(after Set up)
-
-```shell
-python src/populate_secrets_gitlab/app.py write
-```
-
-## Build & Test
-
-```shell
-# lint
-python setup.py flake8
-python3 setup.py build
-python3 setup.py test
-```
-
-## Local Usage
-
-```shell
-python3 setup.py install
-```
-
-### Install from git
-
-```shell
-virtualenv venv
-source venv/bin/activate
-python -m pip install -e "git+https://github.com/deploymode/populate-secrets-gitlab.git/#egg=populate-gitlab"
-```
-
-## Usage Example
+Set your Gitlab personal access token:
 
 ```shell
 export GITLAB_TOKEN=...
-python3 __init__.py \
-	path/to/.env \
-	uat \
-	https://my-gitlab.example.com \
-	project_id \
-	--exclude APP_NAME,LOG_CHANNEL,DB_CONNECTION,BROADCAST_DRIVER,MAIL_FROM_NAME,MIX_SENTRY_LARAVEL_DSN,AZURE_REDIRECT_URI,MIX_APP_ENV \
-	--debug
+```
+
+### List variables
+
+```shell
+# Show keys and non-masked values
+populate-gitlab list --environment uat --gitlab-host gitlab.example.com --project my-group/my-project
+
+# Show all values including masked secrets
+populate-gitlab list --environment uat --gitlab-host gitlab.example.com --project my-group/my-project --sensitive
+```
+
+### Write variables from .env file
+
+```shell
+populate-gitlab write \
+  --env-file path/to/.env \
+  --environment uat \
+  --gitlab-host gitlab.example.com \
+  --project my-group/my-project \
+  --mask \
+  --exclude APP_NAME,LOG_CHANNEL
+```
+
+### Get/export variables
+
+```shell
+populate-gitlab get --environment uat --gitlab-host gitlab.example.com --project my-group/my-project --export
 ```

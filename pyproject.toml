@@ -1,6 +1,29 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "populate-secrets-gitlab"
+version = "0.3.0"
+description = "Manage Gitlab CI/CD Variables — populate from .env files, list, and export"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Joe Niland", email = "joe@deploymode.com" },
+]
+dependencies = [
+    "python-gitlab>=3.9,<5",
+    "python-dotenv>=0.21,<2",
+    "click>=8,<9",
+]
+
+[project.urls]
+Homepage = "https://github.com/deploymode/populate-secrets-gitlab"
+Issues = "https://github.com/deploymode/populate-secrets-gitlab/issues"
+
+[project.scripts]
+populate-gitlab = "populate_secrets_gitlab.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
