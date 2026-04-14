@@ -9,8 +9,6 @@ from gitlab.v4.objects.projects import Project
 
 from .gitlab_server import gitlab_client
 import click
-import urllib
-from urllib.parse import urlparse
 import os
 from traceback import print_exc
 import logging
@@ -109,15 +107,9 @@ def write(env_file, environment, gitlab_host, project, include, exclude, mask, d
     gitlabProject: Project
 
     try:
-        gitlabProject = gitlabClient.projects.get(
-            id=urllib.parse.quote_plus(project)
-        )
+        gitlabProject = gitlabClient.projects.get(id=project)
     except gitlab.exceptions.GitlabHttpError:
-        raise Exception(
-            "Could not find project: {}".format(
-                urllib.parse.quote_plus(project)
-            )
-        )
+        raise Exception("Could not find project: {}".format(project))
 
     if not gitlabProject:
         raise Exception("Could not find project: {}".format(project))
@@ -229,15 +221,9 @@ def get(environment, gitlab_host, project, export, debug):
     logger.info(f"Loading project vars from {project}")
 
     try:
-        gitlabProject = gitlabClient.projects.get(
-            id=urllib.parse.quote_plus(project)
-        )
+        gitlabProject = gitlabClient.projects.get(id=project)
     except gitlab.exceptions.GitlabHttpError:
-        raise Exception(
-            "Could not find project: {}".format(
-                urllib.parse.quote_plus(project)
-            )
-        )
+        raise Exception("Could not find project: {}".format(project))
 
     if not gitlabProject:
         raise Exception("Could not find project: {}".format(project))
@@ -299,12 +285,10 @@ def list_vars(environment, gitlab_host, project, sensitive, debug):
         gitlabClient.enable_debug()
 
     try:
-        gitlabProject = gitlabClient.projects.get(
-            id=urllib.parse.quote_plus(project)
-        )
+        gitlabProject = gitlabClient.projects.get(id=project)
     except gitlab.exceptions.GitlabHttpError:
         raise click.ClickException(
-            "Could not find project: {}".format(urllib.parse.quote_plus(project))
+            "Could not find project: {}".format(project)
         )
 
     if not gitlabProject:
