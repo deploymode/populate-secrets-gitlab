@@ -23,7 +23,7 @@ Homepage = "https://github.com/deploymode/populate-secrets-gitlab"
 Issues = "https://github.com/deploymode/populate-secrets-gitlab/issues"
 
 [project.scripts]
-populate-gitlab = "populate_secrets_gitlab.__main__:main"
+populate-secrets-gitlab = "populate_secrets_gitlab.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
