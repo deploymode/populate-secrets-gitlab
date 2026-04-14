@@ -331,5 +331,98 @@ def list_vars(environment, gitlab_host, project, sensitive, debug):
     click.secho(f"\n{len(env_vars)} variable(s) found.", fg="green")
 
 
+@cli.command(help="Download Gitlab project vars to an .env file")
+@click.option(
+    "--environment",
+    required=True,
+    help="Name of gitlab environment, e.g. `uat`",
+)
+@click.option(
+    "--gitlab-host",
+    required=True,
+    help="Gitlab server host",
+)
+@click.option(
+    "--project",
+    required=True,
+    help="Gitlab project name or ID",
+)
+@click.option(
+    "--output-dir",
+    default=".",
+    help="Directory to save the .env file (default: current directory)",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Produce debug output",
+)
+def download(environment, gitlab_host, project, output_dir, debug):
+    try:
+        gitlab_token = os.environ["GITLAB_TOKEN"]
+    except KeyError:
+        raise click.ClickException(
+            f"GITLAB_TOKEN must be set. Get token from https://{gitlab_host}/-/profile/personal_access_tokens"
+        )
+
+    if not os.path.isdir(output_dir):
+        raise click.ClickException(f"Output directory does not exist: {output_dir}")
+
+    gitlabClient = gitlab_client(gitlab_host, gitlab_token)
+    if debug:
+        gitlabClient.enable_debug()
+
+    try:
+        gitlabProject = gitlabClient.projects.get(id=project)
+    except gitlab.exceptions.GitlabHttpError:
+        raise click.ClickException("Could not find project: {}".format(project))
+
+    if not gitlabProject:
+        raise click.ClickException("Could not find project: {}".format(project))
+
+    click.secho(
+        f"Downloading vars from {gitlabProject.name} ({gitlabProject.id}) — environment: {environment}",
+        fg="green",
+    )
+
+    variables = gitlabProject.variables.list(get_all=True)
+
+    env_vars = []
+    for v in variables:
+        scope = "global" if v.environment_scope == "*" else v.environment_scope
+        if scope == environment or scope == "global":
+            env_vars.append(v)
+
+    if not env_vars:
+        click.secho("No variables found.", fg="yellow")
+        return
+
+    output_path = os.path.join(output_dir, f"{environment}.env")
+
+    if os.path.exists(output_path):
+        click.secho(f"File already exists: {output_path}", fg="yellow")
+        choice = click.prompt(
+            "Choose action",
+            type=click.Choice(["overwrite", "rename", "cancel"], case_sensitive=False),
+            default="cancel",
+        )
+        if choice == "cancel":
+            click.secho("Cancelled.", fg="red")
+            return
+        elif choice == "rename":
+            n = 1
+            while True:
+                output_path = os.path.join(output_dir, f"{environment}-{n}.env")
+                if not os.path.exists(output_path):
+                    break
+                n += 1
+
+    with open(output_path, "w") as f:
+        for v in env_vars:
+            f.write(f"{v.key}={v.value}\n")
+
+    click.secho(f"Saved {len(env_vars)} variable(s) to {output_path}", fg="green")
+
+
 if __name__ == "__main__":
     cli()
