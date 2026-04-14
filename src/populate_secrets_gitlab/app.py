@@ -3,11 +3,11 @@
 #
 #############################################################
 
-from email.policy import default
-import re
 from dotenv import dotenv_values
 import gitlab
-import util
+from gitlab.v4.objects.projects import Project
+
+from .gitlab_server import gitlab_client
 import click
 import urllib
 from urllib.parse import urlparse
@@ -61,25 +61,33 @@ def cli():
     default=""
 )
 @click.option(
+    "--mask",
+    is_flag=True,
+    default=False,
+    help="Mask variables with strings KEY, SECRET, TOKEN in their name",
+)
+@click.option(
     "--debug",
     is_flag=True,
     help="Produce debug output",
 )
-def write(env_file, environment, gitlab_host, project, include, exclude, debug):
+def write(env_file, environment, gitlab_host, project, include, exclude, mask, debug):
     # If the var name contains any of these words it will be masked
-    varsToMask = ["KEY", "SECRET"]  # PASSWORD
-    enableMasking = False
-    gitlab_token = None
+    varsToMask = ["KEY", "SECRET", "TOKEN"]  # PASSWORD
+    enableMasking = mask
 
     try:
         gitlab_token = os.environ["GITLAB_TOKEN"]
     except KeyError:
-        raise Exception(
-            "GITLAB_TOKEN must be set. Get token from https://your-gitlab.example.com/profile/personal_access_tokens"
+        raise click.ClickException(
+            f"GITLAB_TOKEN must be set. Get token from https://{gitlab_host}/-/profile/personal_access_tokens"
         )
 
+    if not os.path.exists(env_file):
+        raise click.ClickException(f"Env file not found: {env_file}")
+
     # Create gitlab client
-    gitlabClient = gitlab.Gitlab(gitlab_host, private_token=gitlab_token)
+    gitlabClient = gitlab_client(gitlab_host, gitlab_token)
     if debug:
         gitlabClient.enable_debug()
 
@@ -98,7 +106,7 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
         env_vars_to_exclude = exclude.split(",")
         logger.info("Excluding: {}".format("; ".join(env_vars_to_exclude)))
 
-    gitlabProject = ""
+    gitlabProject: Project
 
     try:
         gitlabProject = gitlabClient.projects.get(
@@ -114,15 +122,21 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
     if not gitlabProject:
         raise Exception("Could not find project: {}".format(project))
 
-    # gitlabProjectVariables = gitlabProject.variables.list()
-    # if args.debug:
-    #     logger.info(*gitlabProjectVariables, sep='\n')
-    # gitlabProjectVariableKeys = list(map(lambda o: o.key, gitlabProjectVariables))
-    # if args.debug:
-    #     logger.info(*gitlabProjectVariableKeys, sep='\n')
+    # Get all existing vars
+    gl_project_vars = gitlabProject.variables.list(get_all=True)
+    logger.debug(gl_project_vars)
+    gitlab_project_variable_keys_with_scope = list(map(lambda o: {"environment_scope": o.environment_scope, "key": o.key}, gl_project_vars))
+    logger.debug(gitlab_project_variable_keys_with_scope)
+    gitlab_project_variable_keys_by_scope = dict()
+    for d in gitlab_project_variable_keys_with_scope:
+        gitlab_project_variable_keys_by_scope.setdefault(
+                    d["environment_scope"], []
+                ).append(d["key"])
+
+    logger.debug(gitlab_project_variable_keys_by_scope)
 
     for key, value in env_values.items():
-        isUpdate = False
+        is_update = False
         if len(env_vars_to_include) > 0 and key not in env_vars_to_include:
             continue
 
@@ -132,24 +146,14 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
 
         # Write to Gitlab API
         try:
-            projectVar = None
-            # Check if var exists in the current environment
-            try:
-                projectVar = gitlabProject.variables.get(
-                    key
-                )  # , 'filter[environment_scope]'='{}'.format(args.environment))
-                logger.debug(projectVar)
-            except gitlab.exceptions.GitlabGetError:
-                # Do nothing - API returned a 404
-                logger.info("{} var not found - will create".format(key))
-
-            logger.debug(projectVar)
-
-            if projectVar and projectVar.environment_scope == environment:
-                isUpdate = True
+            if key in gitlab_project_variable_keys_by_scope[environment]:
+                is_update = True
                 # Update
-                projectVar.value = value
-                projectVar.save()
+                project_var = [v for v in gl_project_vars if v.key == key][0]
+                project_var.value = value
+                if enableMasking and any(x in key for x in varsToMask):
+                    project_var.masked = True
+                project_var.save(filter={'environment_scope': environment})
             else:
                 # Add
                 payload = {
@@ -175,7 +179,7 @@ def write(env_file, environment, gitlab_host, project, include, exclude, debug):
 
         logger.info(
             "Wrote {} variable {} to Gitlab API in environment {}".format(
-                "updated" if isUpdate else "new", key, environment
+                "updated" if is_update else "new", key, environment
             )
         )
 
@@ -218,7 +222,7 @@ def get(environment, gitlab_host, project, export, debug):
         )
 
     # Create gitlab client
-    gitlabClient = gitlab.Gitlab(util.prepare_gitlab_host(gitlab_host), private_token=gitlab_token)
+    gitlabClient = gitlab_client(gitlab_host, gitlab_token) 
     if debug:
         gitlabClient.enable_debug()
 
@@ -253,6 +257,94 @@ def get(environment, gitlab_host, project, export, debug):
                     f.write(f"{variable.key}={variable.value}\n")
 
     logger.info("Done")
+
+
+@cli.command(name="list", help="List Gitlab project vars for an environment")
+@click.option(
+    "--environment",
+    required=True,
+    help="Name of gitlab environment, e.g. `uat`",
+)
+@click.option(
+    "--gitlab-host",
+    required=True,
+    help="Gitlab server host",
+)
+@click.option(
+    "--project",
+    required=True,
+    help="Gitlab project name or ID",
+)
+@click.option(
+    "--sensitive",
+    is_flag=True,
+    default=False,
+    help="Show all values including masked ones",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Produce debug output",
+)
+def list_vars(environment, gitlab_host, project, sensitive, debug):
+    try:
+        gitlab_token = os.environ["GITLAB_TOKEN"]
+    except KeyError:
+        raise click.ClickException(
+            f"GITLAB_TOKEN must be set. Get token from https://{gitlab_host}/-/profile/personal_access_tokens"
+        )
+
+    gitlabClient = gitlab_client(gitlab_host, gitlab_token)
+    if debug:
+        gitlabClient.enable_debug()
+
+    try:
+        gitlabProject = gitlabClient.projects.get(
+            id=urllib.parse.quote_plus(project)
+        )
+    except gitlab.exceptions.GitlabHttpError:
+        raise click.ClickException(
+            "Could not find project: {}".format(urllib.parse.quote_plus(project))
+        )
+
+    if not gitlabProject:
+        raise click.ClickException("Could not find project: {}".format(project))
+
+    click.secho(
+        f"Variables for {gitlabProject.name} ({gitlabProject.id}) — environment: {environment}",
+        fg="green",
+    )
+
+    variables = gitlabProject.variables.list(get_all=True)
+
+    env_vars = []
+    for v in variables:
+        scope = "global" if v.environment_scope == "*" else v.environment_scope
+        if scope == environment or scope == "global":
+            env_vars.append(v)
+
+    if not env_vars:
+        click.secho("No variables found.", fg="yellow")
+        return
+
+    # Determine column widths
+    max_key_len = max(len(v.key) for v in env_vars)
+    max_scope_len = max(len(v.environment_scope) for v in env_vars)
+
+    for v in env_vars:
+        if sensitive or not v.masked:
+            display_value = v.value
+        else:
+            display_value = "********"
+
+        scope_label = v.environment_scope
+        key_col = v.key.ljust(max_key_len)
+        scope_col = scope_label.ljust(max_scope_len)
+        masked_label = " [masked]" if v.masked else ""
+
+        click.echo(f"  {scope_col}  {key_col}  {display_value}{masked_label}")
+
+    click.secho(f"\n{len(env_vars)} variable(s) found.", fg="green")
 
 
 if __name__ == "__main__":
