@@ -79,12 +79,12 @@ def write(env_file, environment, gitlab_host, project, include, exclude, mask, d
     try:
         gitlab_token = os.environ["GITLAB_TOKEN"]
     except KeyError:
-        raise Exception(
-            "GITLAB_TOKEN must be set. Get token from https://your-gitlab.example.com/profile/personal_access_tokens"
+        raise click.ClickException(
+            f"GITLAB_TOKEN must be set. Get token from https://{gitlab_host}/-/profile/personal_access_tokens"
         )
 
     if not os.path.exists(env_file):
-        raise Exception(f"Unable to find env file {env_file}")
+        raise click.ClickException(f"Env file not found: {env_file}")
 
     # Create gitlab client
     gitlabClient = gitlab_client(gitlab_host, gitlab_token)
