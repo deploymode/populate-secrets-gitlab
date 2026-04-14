@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=64", "wheel", "setuptools-scm>=8"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "populate-secrets-gitlab"
-dynamic = ["version"]
+version = "0.3.0"
 description = "Manage Gitlab CI/CD Variables — populate from .env files, list, and export"
 readme = "README.md"
 license = "MIT"
@@ -24,8 +24,6 @@ Issues = "https://github.com/deploymode/populate-secrets-gitlab/issues"
 
 [project.scripts]
 populate-secrets-gitlab = "populate_secrets_gitlab.__main__:main"
-
-[tool.setuptools_scm]
 
 [tool.setuptools.packages.find]
 where = ["src"]
