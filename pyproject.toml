@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "populate-secrets-gitlab"
-version = "0.3.0"
+version = "0.4.0"
 description = "Manage Gitlab CI/CD Variables — populate from .env files, list, and export"
 readme = "README.md"
 license = "MIT"
