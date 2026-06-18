@@ -232,7 +232,7 @@ def get(environment, gitlab_host, project, export, debug):
 
 
     gitlabProjectVariables = gitlabProject.variables.list(get_all=True)
-    for variable in gitlabProjectVariables:
+    for variable in sorted(gitlabProjectVariables, key=lambda v: v.key):
         scope = 'global' if variable.environment_scope == '*' else variable.environment_scope
         if scope == environment or scope == 'global':
             click.secho(f"[{variable.environment_scope}] {variable.key}={variable.value}", fg='yellow')
@@ -396,6 +396,8 @@ def download(environment, gitlab_host, project, output_dir, debug):
     if not env_vars:
         click.secho("No variables found.", fg="yellow")
         return
+
+    env_vars.sort(key=lambda v: v.key)
 
     output_path = os.path.join(output_dir, f"{environment}.env")
 
