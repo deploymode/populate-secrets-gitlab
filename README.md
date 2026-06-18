@@ -12,8 +12,10 @@ It provides four commands:
 
 - `write` — read a local `.env` file and create or update the matching
   project variables in the given environment scope. Supports `--include` /
-  `--exclude` filtering and `--mask` to mask values whose key contains `KEY`,
-  `SECRET`, or `TOKEN`.
+  `--exclude` filtering and `--mask` to mask values whose key contains the
+  substring `KEY`, `SECRET`, or `TOKEN` (e.g. `APP_KEY`, `PUBLIC_KEY`,
+  `AUTH_TOKEN` will all be masked). Masking is one-way: an already-masked
+  variable is never un-masked by this tool.
 - `list` — print the variables for an environment in a table. Masked values are
   hidden unless you pass `--sensitive`.
 - `get` — print the variables for an environment, optionally appending them to a
