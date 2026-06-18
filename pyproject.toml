@@ -25,5 +25,8 @@ Issues = "https://github.com/deploymode/populate-secrets-gitlab/issues"
 [project.scripts]
 populate-secrets-gitlab = "populate_secrets_gitlab.__main__:main"
 
+[dependency-groups]
+dev = ["pytest>=8"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
