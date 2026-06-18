@@ -1,6 +1,29 @@
 Populate Gitlab Project Variables from .env file
 =================================================
 
+## Overview
+
+A command-line tool for managing a Gitlab project's CI/CD variables, scoped to a
+Gitlab [environment](https://docs.gitlab.com/ee/ci/environments/) (e.g. `uat`,
+`production`). It talks to the Gitlab API using a personal access token and lets
+you move variables between a local `.env` file and Gitlab in both directions.
+
+It provides four commands:
+
+- `write` — read a local `.env` file and create or update the matching
+  project variables in the given environment scope. Supports `--include` /
+  `--exclude` filtering and `--mask` to mask values whose key contains `KEY`,
+  `SECRET`, or `TOKEN`.
+- `list` — print the variables for an environment in a table. Masked values are
+  hidden unless you pass `--sensitive`.
+- `get` — print the variables for an environment, optionally appending them to a
+  `<scope>.env` file with `--export`.
+- `download` — write an environment's variables to a `<environment>.env` file,
+  prompting before overwriting an existing file.
+
+All commands target both the requested environment and globally-scoped (`*`)
+variables. Requires a `GITLAB_TOKEN` environment variable.
+
 ## Install
 
 Install as a global user tool (isolated environment, command on your PATH):
@@ -55,4 +78,10 @@ populate-secrets-gitlab write \
 
 ```shell
 populate-secrets-gitlab get --environment uat --gitlab-host gitlab.example.com --project my-group/my-project --export
+```
+
+### Download variables to an .env file
+
+```shell
+populate-secrets-gitlab download --environment uat --gitlab-host gitlab.example.com --project my-group/my-project --output-dir .
 ```
