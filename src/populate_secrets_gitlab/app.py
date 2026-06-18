@@ -138,7 +138,7 @@ def write(env_file, environment, gitlab_host, project, include, exclude, mask, d
 
         # Write to Gitlab API
         try:
-            if key in gitlab_project_variable_keys_by_scope[environment]:
+            if key in gitlab_project_variable_keys_by_scope.get(environment, []):
                 is_update = True
                 # Update
                 project_var = [v for v in gl_project_vars if v.key == key][0]
@@ -164,8 +164,8 @@ def write(env_file, environment, gitlab_host, project, include, exclude, mask, d
             logger.info("Failed to write {} due to error from Gitlab API".format(key))
             print_exc()
             continue
-        except Exception:
-            logger.info("Failed to write {} due to unexpected error".format(key))
+        except gitlab.exceptions.GitlabError:
+            logger.info("Failed to write {} due to unexpected Gitlab error".format(key))
             print_exc()
             continue
 
@@ -209,7 +209,7 @@ def get(environment, gitlab_host, project, export, debug):
     try:
         gitlab_token = os.environ["GITLAB_TOKEN"]
     except KeyError:
-        raise Exception(
+        raise click.ClickException(
             f"GITLAB_TOKEN must be set. Get token from https://{gitlab_host}/-/profile/personal_access_tokens"
         )
 
@@ -232,6 +232,7 @@ def get(environment, gitlab_host, project, export, debug):
 
 
     gitlabProjectVariables = gitlabProject.variables.list(get_all=True)
+    export_opened = set()
     for variable in sorted(gitlabProjectVariables, key=lambda v: v.key):
         scope = 'global' if variable.environment_scope == '*' else variable.environment_scope
         if scope == environment or scope == 'global':
@@ -239,8 +240,10 @@ def get(environment, gitlab_host, project, export, debug):
 
             if export:
                 logger.debug(f"Writing {variable.key} to {scope}.env")
-                with open(f"{scope}.env", 'a+') as f:
+                mode = "a" if scope in export_opened else "w"
+                with open(f"{scope}.env", mode) as f:
                     f.write(f"{variable.key}={variable.value}\n")
+                export_opened.add(scope)
 
     logger.info("Done")
 
