@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/deploymode/populate-secrets-gitlab/compare/v0.4.0...v0.4.1) (2026-06-18)
+
+
+### Bug Fixes
+
+* write reliability and error-handling fixes ([3fed1e0](https://github.com/deploymode/populate-secrets-gitlab/commit/3fed1e0e734cb16244640f40432ae2c46bf64836))
+* write to fresh environment scope, narrow exception handler, consistent token error, and idempotent get --export ([5a06d9a](https://github.com/deploymode/populate-secrets-gitlab/commit/5a06d9a649d127066a24a29d5a2029de9b7bac29))
+
 ## [0.4.0](https://github.com/deploymode/populate-secrets-gitlab/compare/v0.3.0...v0.4.0) (2026-06-18)
 
 
