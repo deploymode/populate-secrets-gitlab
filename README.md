@@ -1,6 +1,13 @@
 Populate Gitlab Project Variables from .env file
 =================================================
 
+> **Deprecated.** This tool has moved into
+> [populate-secrets](https://github.com/deploymode/populate-secrets), which
+> handles Gitlab, AWS SSM and Azure in one CLI. The commands are the same behind
+> a `gitlab` subcommand, e.g.
+> `populate-secrets gitlab write --env-file .env --environment uat ...`.
+> `--mask` now also masks names containing `PASSWORD`.
+
 ## Overview
 
 A command-line tool for managing a Gitlab project's CI/CD variables, scoped to a
